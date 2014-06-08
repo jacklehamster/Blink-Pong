@@ -16,6 +16,10 @@
 	import flash.media.SoundTransform;
 	import flash.utils.getTimer;
 	import flash.media.SoundChannel;
+	import flash.system.Capabilities;
+	import flash.net.SharedObject;
+	import flash.utils.Timer;
+	import flash.events.TimerEvent;
 	
 	
 	public class Game extends MovieClip {
@@ -35,120 +39,21 @@
 		private var noSound:Sound = new NoSound();
 		private var ballSoundTransform:SoundTransform = new SoundTransform();
 		private var pausedTime:int = 0;
-		private var score:Array = [];
-		private var level:int = 1;
 		private var lastHit:int = 0;
 		private var powerShift:Number = 0, foeShift:Number = 0;
-		private var speaking:Boolean = false;
+		private var adPending:Boolean = false;
+		private var score:Array = [0,0];
+		private var myServe:Boolean = true;
+		private var serving:Boolean = false;
+		private var peerLost:Boolean = false;
+		private var waitingForPeer:Boolean = false;
+		private var serveTimer:Timer;
+		private var recordPending:int = 0;
 		
-		private var voices:Object = {
-			Iwin:new aywin_01(),
-			Uwin:new youwin_01(),
-			level:new leval_01(),
-			tin:new tin_01(),
-			ty:new ty_01(),
-			0:new zero_01(),
-			1:new one_01(),
-			2:new two_01(),
-			3:new three_01(),
-			4:new four_01(),
-			5:new five_01(),
-			6:new six_01(),
-			7:new seven_01(),
-			8:new eight_01(),
-			9:new nain_01(),
-			10:new ten_01(),
-			11:new ileven_01(),
-			12:new twelve_01(),
-			13:new thirteen_01(),
-			14:new fortin_01(),
-			15:new fifteen_01(),
-			16:[6,"tin"],
-			17:[7,"tin"],
-			18:[8,"tin"],
-			19:[9,"tin"],
-			20:new twenty_01(),
-			21:[20,1],
-			22:[20,2],
-			23:[20,3],
-			24:[20,4],
-			25:[20,5],
-			26:[20,6],
-			27:[20,7],
-			28:[20,8],
-			29:[20,9],
-			30:new thirty_01(),
-			31:[30,1],
-			32:[30,2],
-			33:[30,3],
-			34:[30,4],
-			35:[30,5],
-			36:[30,6],
-			37:[30,7],
-			38:[30,8],
-			39:[30,9],
-			40:[4,"ty"],
-			41:[40,1],
-			42:[40,2],
-			43:[40,3],
-			44:[40,4],
-			45:[40,5],
-			46:[40,6],
-			47:[40,7],
-			48:[40,8],
-			49:[40,9],
-			50:new fifty_01(),
-			51:[50,1],
-			52:[50,2],
-			53:[50,3],
-			54:[50,4],
-			55:[50,5],
-			56:[50,6],
-			57:[50,7],
-			58:[50,8],
-			59:[50,9],
-			60:[6,"ty"],
-			61:[60,1],
-			62:[60,2],
-			63:[60,3],
-			64:[60,4],
-			65:[60,5],
-			66:[60,6],
-			67:[60,7],
-			68:[60,8],
-			69:[60,9],
-			70:[7,"ty"],
-			71:[70,1],
-			72:[70,2],
-			73:[70,3],
-			74:[70,4],
-			75:[70,5],
-			76:[70,6],
-			77:[70,7],
-			78:[70,8],
-			79:[70,9],
-			80:[8,"ty"],
-			81:[80,1],
-			82:[80,2],
-			83:[80,3],
-			84:[80,4],
-			85:[80,5],
-			86:[80,6],
-			87:[80,7],
-			88:[80,8],
-			89:[80,9],
-			90:[9,"ty"],
-			91:[90,1],
-			92:[90,2],
-			93:[90,3],
-			94:[90,4],
-			95:[90,5],
-			96:[90,6],
-			97:[90,7],
-			98:[90,8],
-			99:[90,9]
-		};
+		private var so:SharedObject = SharedObject.getLocal("blinkpong");
 		
+		private var voice:Voice = Voice.instance;
+
 		public function Game() {
 			addEventListener(Event.ADDED_TO_STAGE,onStage);
 			addEventListener(Event.REMOVED_FROM_STAGE,offStage);
@@ -167,24 +72,63 @@
 			var blackAlphaColor:uint = 0xFF000000;
 			var transparentColor:uint = 0x00000000;
 			tableLayer.bitmapData.threshold(tableLayer.bitmapData,tableLayer.bitmapData.rect,new Point(),"<=",blackAlphaColor,transparentColor);
-			initGame();
-
+			if(isMultiplayer()) {
+				Project.instance.blinkIO.hook = onPeerAction;
+			}
+			else {
+				serveTimer = new Timer(3000,1);
+				serveTimer.addEventListener(TimerEvent.TIMER_COMPLETE,foeServe);
+			}
+			initGame(isMultiplayer());
+			if(level==1 && score[0]==0 && score[1]==0 && !isMultiplayer() && so.data.record) {
+				bestLevel.visible = true;
+				bestLevel.gotoAndStop(so.data.record);
+				addChild(bestLevel);
+			}
 		}
 		
-		private function initGame():void {
-			stage.frameRate = 60 + Math.max(0,level-10);
-			score = [0,0];
+		private function get level():int {
+			return so.data.level?so.data.level:1;
+		}
+		
+		private function set level(value:int):void {
+			so.setProperty("level",value>1?value:null);
+		}
+		
+		private function persistScore():void {
+			so.setProperty("score",score);
+		}
+		
+		private function getScore():Array {
+			return so.data.score ? so.data.score : [0,0];
+		}
+		
+		private function initGame(resetScore:Boolean):void {
+			stage.frameRate = Project.instance.frameRate + Math.max(0,level-10);
+			if(!resetScore) {
+				score = getScore();
+			}
+			if(resetScore || (score[0]>=11||score[1]>=11) && diffScore(score)>=2) {
+				score = [0,0];
+			}
+			recordPending = 0;
+			myServe = isMultiplayer() ? Project.instance.blinkIO.host :
+				int((score[0]+score[0]+1)/2)==0;
 			foeShift = powerShift = 0;
-			speaking = false;
+			voice.speaking = false;
 			paused = false;
 			initBall();
-			hideScore();
+			showScore(false,false);
 			showLevel();
 			speakLevel();
 		}
 		
+		private function isMultiplayer():Boolean {
+			return Project.instance.blinkIO!=null;
+		}
+		
 		private function showLevel():void {
-			levelMC.gotoAndStop(level);
+			levelMC.gotoAndStop(isMultiplayer()?"VERSUS":Math.min(level,100));
 			levelMC.visible = true;
 		}
 			
@@ -192,27 +136,26 @@
 			levelMC.visible = false;
 		}
 		
-		private function voiceNumber(num:Object):Array {
-			if(voices[num] is Sound) {
-				return [voices[num]];
-			}
-			else if(voices[num] is Array) {
-				var array:Array = [];
-				for(var i:int=0;i<voices[num].length;i++) {
-					array = array.concat(voiceNumber(voices[num][i]));
-				}
-				return array;
-			}
-			return voiceNumber("Uwin");
-		}
-		
 		private function speakLevel():void {
-			speakSounds([voices.level].concat(voiceNumber(level)));
+			if(isMultiplayer()) {
+				voice.speakSounds([new PlayerVsPlayerSound()]);
+			}
+			else {
+				speakSounds([voice.voices.level].concat(voice.voiceNumber(level)));
+			}
 		}
 		
 		private function initBall():void {
-			ball = new Vector3D(0,-8,0);
+			ball = new Vector3D(0,-8,myServe?0:8);
 			bmov = new Vector3D();
+			serving = true;
+			peerLost = false;
+			waitingForPeer = false;
+			if(!isMultiplayer() && !myServe) {
+				serveTimer.reset();
+				serveTimer.delay = 2000+Math.random()*2000;
+				serveTimer.start();
+			}
 		}
 		
 		private function onStage(e:Event):void {
@@ -256,7 +199,10 @@
 				}
 			}
 			if(ball.z>10) {
-				if(Math.random()<.8 + Math.min(.19,.1 * (level)/12)) {
+				var returnBall:Boolean = isMultiplayer() ? !peerLost : 
+					Math.random()<.8 + Math.min(.19,.1 * (level)/12);
+				
+				if(returnBall) {
 					paddleSound.play(0,0,sTransform(foeShift/3));
 	//				bmov.z = -bmov.z;
 	//				ball.z = 10;
@@ -269,12 +215,19 @@
 				
 			}
 			else if(ball.z<-2) {
-				losePoint();
+				if(peerLost) {	//	fake a hit back
+					paddleSound.play(0,0,sTransform(powerShift/3));
+					hitBall(false,false);
+					animateShot(false);
+				}
+				else {
+					losePoint();
+				}
 			}
 		}
 		
 		private function sTransform(shift:Number):SoundTransform {
-			ballSoundTransform.volume =  Math.max(0,1-Math.max(0,ball.z)/20 + shift);
+			ballSoundTransform.volume =  Math.max(0,1-Math.max(0,ball.z)/15 + shift);
 			ballSoundTransform.pan = ball.x/20;
 			
 			//trace(Math.abs(ball.z));
@@ -283,17 +236,17 @@
 		
 		private function hitBall(reverse:Boolean,serve:Boolean):void {
 			if(reverse) {
-				ball.y = serve?3:5;
+				ball.y = serve?1.5:5;
 				ball.z = 10;
-				bmov.y = serve?2:-3 + 1*Math.sqrt(foeShift);
-				bmov.z = serve?-.3:-.3 - .1*foeShift;
+				bmov.y = serve?1.5:-3 + 1*Math.sqrt(foeShift);
+				bmov.z = serve?-.25:-.3 - .1*foeShift;
 				bmov.x = Math.random()-.5-ball.x/20;
 			}
 			else {
-				ball.y = serve?3:5;
+				ball.y = serve?1.5:5;
 				ball.z = 0;
-				bmov.y = serve?2:-3 + 1*Math.sqrt(powerShift);
-				bmov.z = serve?.3:.3 + .1*powerShift;
+				bmov.y = serve?1.5:-3 + 1*Math.sqrt(powerShift);
+				bmov.z = serve?.25:.3 + .1*powerShift;
 				bmov.x = Math.random()-.5-ball.x/20;
 			}
 			
@@ -336,54 +289,105 @@
 		}
 		
 		private function onAction(e:Event):void {
-			if(getTimer()-lastHit<400 || speaking) {
+			if(getTimer()-lastHit<400 || voice.speaking) {
 				noSound.play();
 				return;
 			}
 			lastHit = getTimer();
 			if(paused) {
-				if(getTimer()-pausedTime > 200) {
-					paused = false;
-					if(score[0]==11||score[1]==11) {
-						initGame();
+				if(adPending) {
+					Project.instance.showAd();
+					adPending = false;
+				}
+				else if(recordPending) {
+					if(!newRecord.visible) {
+						newRecord.gotoAndStop(recordPending);
+						speakSounds([new NewRecordSound(),"level",recordPending]);
+						newRecord.visible = true;
+						addChild(newRecord);
+						recordPending = 0;
 					}
-					else {
-						initBall();
+				}
+				else if(waitingForPeer) {
+				}
+				else {
+					if(getTimer()-pausedTime > 200) {
+						paused = false;
+						newRecord.visible = false;
+						if((score[0]>=11||score[1]>=11) && diffScore(score)>=2) {
+							initGame(true);
+						}
+						else {
+							initBall();
+						}
+						foeShift /= 2;
+						powerShift /= 2;
+						hideScore();
 					}
-					foeShift /= 2;
-					powerShift /= 2;
-					hideScore();
 				}
 			}
 			else if(ball.z>=-1 && ball.z<3) {
 				if(levelMC.visible) {
 					hideLevel();
+					hideScore();
+					bestLevel.visible = false;
 				}
 				
-				if(bmov.z!=0)
+				if(isMultiplayer() && serving) {
+					Project.instance.blinkIO.send("serve");
+				}
+				
+				if(!serving)
 					affectShot(Math.abs(ball.z));
 				
 				paddleSound.play(0,0,sTransform(powerShift/3));
-				hitBall(false,bmov.z==0);
+				hitBall(false,serving);
 				animateShot(false);
+				serving = false;
 			}
 			else if(ball.z>5) {
 				noSound.play();
 			}
 			else {
-				losePoint();
+				noSound.play();
+//				losePoint();
 			}
 		}
 		
+		private function diffScore(score:Array):int {
+			return Math.abs(score[0]-score[1]);
+		}
+		
 		private function losePoint():void {
+			if(isMultiplayer()) {
+				Project.instance.blinkIO.send("lost");
+				waitingForPeer = true;
+			}
 			loseSound.play();
 			paused = true;
 			paintBall();
 			score[1]++;
+			persistScore();
 			showScore(false,true);
 			speakScore();
-			if(score[1]==11) {
-				level = 1;
+			checkServe();			
+			if(score[1]>=11 && diffScore(score)>=2) {
+				if(isMultiplayer()) {
+					adPending = AdHandler.isSupported;
+				}
+				else {
+					checkRecord(level);					
+					level = 1;
+					adPending = AdHandler.isSupported;
+				}
+			}
+		}
+		
+		private function checkRecord(level:int):void {
+			var record:int =so.data.record ? so.data.record : 1;
+			if(level>record) {
+				so.setProperty("record",level);
+				recordPending = level;
 			}
 		}
 		
@@ -392,48 +396,55 @@
 			paused = true;
 			paintBall();
 			score[0]++;
+			persistScore();
 			showScore(true,false);
 			speakScore();
-			if(score[0]==11) {
-				
-				Gamejolt.postScore(level,score);
-				Gamejolt.unlock("8344");
-				level++;
+			checkServe();
+			if(score[0]>=11 && diffScore(score)>=2) {
+				if(isMultiplayer()) {
+					adPending = AdHandler.isSupported;
+				}
+				else {
+					Gamejolt.postScore(level,score);
+					Gamejolt.unlock("8344");
+					level++;
+					adPending = AdHandler.isSupported;
+				}
+			}
+		}
+		
+		private function checkServe():void {
+			if((score[0]+score[1])%2==1) {
+				myServe = !myServe;
 			}
 		}
 		
 		private function showScore(win:Boolean,lose:Boolean):void {
-			score1.gotoAndStop(score[0]+1+(win?12:0));
-			score2.gotoAndStop(score[1]+1+(lose?12:0));
+			score1.gotoAndStop(score[0]+1+(win?101:0));
+			score2.gotoAndStop(score[1]+1+(lose?101:0));
 			score1.visible = score2.visible = true;
-			gameover.visible = score[0]==11||score[1]==11;
-			gameover.gotoAndStop(score[0]==11?1:2);
+			gameover.visible = (score[0]>=11||score[1]>=11) && diffScore(score)>=2;
+			gameover.gotoAndStop(score[0]>score[1]?1:2);
 		}
 		
 		private function speakScore():void {
-			var voicesToSpeak:Array = [voices[score[0]],voices[score[1]]];
-			if(score[0]==11) {
-				voicesToSpeak.push(voices.Uwin);
+			var voicesToSpeak:Array = [voice.voices[score[0]],voice.voices[score[1]]];
+			if(score[0]>=11 && diffScore(score)>=2) {
+				voicesToSpeak.push(voice.voices.Uwin);
 			}
-			else if(score[1]==11) {
-				voicesToSpeak.push(voices.Iwin);				
+			else if(score[1]>=11 && diffScore(score)>=2) {
+				voicesToSpeak.push(voice.voices.Iwin);				
 			}
 			speakSounds(voicesToSpeak);
 		}
 		
-		private function speakSounds(sounds:Array):void {
-			var sndChannel:SoundChannel = sounds[0].play();
-			speaking = true;
-			sndChannel.addEventListener(Event.SOUND_COMPLETE,
-				function(e:Event):void {
-					if(sounds.length>1) {
-						speakSounds(sounds.slice(1));
-					}
-					else {
-						speaking = false;
-						if(paused)
-							onAction(null);
-					}
+		private function speakSounds(voices:Array):void {
+			voice.speakSounds(voices,
+				function():void {
+					if(peerLost)
+						Project.instance.blinkIO.send("continue");
+					if(paused)
+						onAction(null);
 				});
 		}
 		
@@ -486,6 +497,35 @@
 					}
 				});
 		}
+		
+		private function foeServe(e:TimerEvent=null):void {
+			if(levelMC.visible) {
+				hideLevel();
+				hideScore();
+				bestLevel.visible = false;
+			}
+			paddleSound.play(0,0,sTransform(foeShift/3));
+			serving = false;
+			hitBall(true,true);
+			animateShot(true);
+		}
+		
+		private function onPeerAction(action:String,...params):void {
+			switch(action) {
+				case "serve":
+					foeServe();
+					break;
+				case "lost":
+					peerLost = true;
+					break;
+				case "continue":
+					if(waitingForPeer) {
+						waitingForPeer = false;
+						onAction(null);
+					}
+					break;
+			}
+		}		
 	}
 	
 }

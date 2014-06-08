@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<application xmlns="http://ns.adobe.com/air/application/3.6">
+   <id>com.partner.example.flash</id>
+   <versionNumber>1.0.0</versionNumber>
+   <versionLabel></versionLabel>
+   <filename>AdBuddizSDKFlashExamplePartner</filename>
+   <description></description>
+   <name>AdBuddizSDKFlashExamplePartner</name>
+   <copyright></copyright>
+   <initialWindow>
+      <content>AdBuddizSDKFlashExamplePartner.swf</content>
+      <systemChrome>standard</systemChrome>
+      <transparent>false</transparent>
+      <visible>true</visible>
+      <fullScreen>true</fullScreen>
+      <aspectRatio>portrait</aspectRatio>
+      <renderMode>auto</renderMode>
+      <autoOrients>true</autoOrients>
+      <maximizable>true</maximizable>
+      <minimizable>true</minimizable>
+      <resizable>true</resizable>
+   </initialWindow>
+   <icon></icon>
+   <customUpdateUI>false</customUpdateUI>
+   <allowBrowserInvocation>false</allowBrowserInvocation>
+   <android>
+      <manifestAdditions><![CDATA[
+      <manifest android:installLocation="auto">
+
+         <!-- Mandatory permission -->
+         <uses-permission android:name="android.permission.INTERNET" />
+
+         <!-- Optional, but without them, you might get less ads and tracking could be less accurate -->
+         <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+         <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+         <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+         <application android:enabled="true" android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+
+            <!-- Add this activity with this theme --> 
+            <activity android:name="com.purplebrain.adbuddiz.sdk.AdBuddizActivity"
+                      android:theme="@android:style/Theme.Translucent" />
+
+         </application>
+      </manifest>
+      ]]></manifestAdditions>
+   </android>
+   <iPhone>
+      <requestedDisplayResolution>standard</requestedDisplayResolution>
+      <InfoAdditions><![CDATA[
+    <key>UIDeviceFamily</key>
+    <array><string>1</string><string>2</string></array>
+]]></InfoAdditions>
+   </iPhone>
+   <extensions>
+      <extensionID>com.purplebrain.adbuddiz.sdk.extensions.AdBuddizSDK
+      </extensionID>
+   </extensions>
+</application>
