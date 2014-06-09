@@ -75,7 +75,7 @@
 		private function joinRoom(name:String):void {
 			roomname = name;
 			if(roomname && client) {
-				client.multiplayer.createJoinRoom(room,"bounce",true,{},{},onJoin,handleError);
+				client.multiplayer.createJoinRoom(room,"bounce",true,{game:"blinkpong"},{},onJoin,handleError);
 			}
 		}
 		
@@ -91,10 +91,11 @@
 				waitReady(listRooms,[callback]);
 			}
 			else {
-				client.multiplayer.listRooms("bounce",{},100,0,
+				client.multiplayer.listRooms("bounce",{game:"blinkpong"},100,0,
 					function(rooms:Array):void {
 						roomHash = {};
 						for each(var room:RoomInfo in rooms) {
+							trace(room.id);
 							roomHash[room.id] = room;
 						}
 						callback();
