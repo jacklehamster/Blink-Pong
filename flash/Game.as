@@ -20,7 +20,7 @@
 	import flash.net.SharedObject;
 	import flash.utils.Timer;
 	import flash.events.TimerEvent;
-	
+	import com.newgrounds.*;
 	
 	public class Game extends MovieClip {
 		
@@ -388,6 +388,7 @@
 			if(level>record) {
 				so.setProperty("record",level);
 				recordPending = level;
+				API.postScore("Highest Level",level);
 			}
 		}
 		
@@ -409,6 +410,12 @@
 					Gamejolt.unlock("8344");
 					level++;
 					adPending = AdHandler.isSupported;
+					if(score[1]==0) {
+						API.unlockMedal("Skunk!");
+					}
+					else {
+						API.unlockMedal("Win at Blink Pong");
+					}
 				}
 			}
 		}
