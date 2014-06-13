@@ -388,6 +388,7 @@
 			if(level>record) {
 				so.setProperty("record",level);
 				recordPending = level;
+				Kongregate.postScore(level);
 			}
 		}
 		

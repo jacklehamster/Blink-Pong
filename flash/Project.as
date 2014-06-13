@@ -20,6 +20,7 @@
 		public function Project() {
 			frameRate = stage.frameRate;
 			instance = this;
+			Kongregate.init(this);
 			Gamejolt.init(this);
 			stage.addEventListener(MouseEvent.MOUSE_DOWN,onAction);
 			stage.addEventListener(KeyboardEvent.KEY_DOWN,onAction);
