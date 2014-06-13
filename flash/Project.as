@@ -7,6 +7,8 @@
 	import flash.media.SoundChannel;
 	import flash.media.Sound;
 	import flash.ui.Keyboard;
+	import flash.media.SoundMixer;
+	import flash.media.SoundTransform;
 	
 	
 	public class Project extends MovieClip {
@@ -62,7 +64,11 @@
 		}
 		
 		private function onAction(e:Event):void {
-			if(e.type==MouseEvent.MOUSE_DOWN || e.type==KeyboardEvent.KEY_DOWN && (e as KeyboardEvent).keyCode==Keyboard.SPACE)
+			if(e.type==KeyboardEvent.KEY_DOWN && (e as KeyboardEvent).keyCode==Keyboard.M) {
+				SoundMixer.soundTransform = new SoundTransform(1-SoundMixer.soundTransform.volume);
+			}
+			else if(e.type==MouseEvent.MOUSE_DOWN 
+				|| e.type==KeyboardEvent.KEY_DOWN && (e as KeyboardEvent).keyCode==Keyboard.SPACE)
 				dispatchEvent(new Event("action"));
 		}
 		
