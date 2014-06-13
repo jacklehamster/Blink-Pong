@@ -388,7 +388,7 @@
 			if(level>record) {
 				so.setProperty("record",level);
 				recordPending = level;
-				API.postScore("Highest Level",level);
+				API.postScore("Highest level",level);
 			}
 		}
 		
