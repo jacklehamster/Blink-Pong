@@ -23,8 +23,8 @@
 			frameRate = stage.frameRate;
 			instance = this;
 			Gamejolt.init(this);
-			stage.addEventListener(MouseEvent.MOUSE_DOWN,onAction);
-			stage.addEventListener(KeyboardEvent.KEY_DOWN,onAction);
+			stage.addEventListener(MouseEvent.MOUSE_DOWN,onMouseAction);
+			stage.addEventListener(KeyboardEvent.KEY_DOWN,onKeyboardAction);
 			if(AdHandler.isSupported) {
 				adHandler = new AdHandler();
 			}
@@ -53,22 +53,53 @@
 		}
 		
 		private function onDeactivate(e:Event):void {
-//			if(currentScene.name!="Logo")
-//				reset(true);
+			if(currentScene.name!="Logo")
+				reset(true);
 		}
 				
 		public function showAd():void {
 			if(adHandler)
 				adHandler.showAd();
 		}
+
+		private function onMouseAction(e:MouseEvent):void {
+			dispatchEvent(new Event("action"));
+		}
 		
-		private function onAction(e:Event):void {
-			if(e.type==KeyboardEvent.KEY_DOWN && (e as KeyboardEvent).keyCode==Keyboard.M) {
-				SoundMixer.soundTransform = new SoundTransform(1-SoundMixer.soundTransform.volume);
+		private function onKeyboardAction(e:KeyboardEvent):void {
+			switch(e.keyCode) {
+				case Keyboard.NUMBER_0:
+				case Keyboard.NUMPAD_0:
+				case Keyboard.NUMBER_1:
+				case Keyboard.NUMPAD_1:
+				case Keyboard.NUMBER_2:
+				case Keyboard.NUMPAD_2:
+				case Keyboard.NUMBER_3:
+				case Keyboard.NUMPAD_3:
+				case Keyboard.NUMBER_4:
+				case Keyboard.NUMPAD_4:
+				case Keyboard.NUMBER_5:
+				case Keyboard.NUMPAD_5:
+				case Keyboard.NUMBER_6:
+				case Keyboard.NUMPAD_6:
+				case Keyboard.NUMBER_7:
+				case Keyboard.NUMPAD_7:
+				case Keyboard.NUMBER_8:
+				case Keyboard.NUMPAD_8:
+				case Keyboard.NUMBER_9:
+				case Keyboard.NUMPAD_9:
+					break;
+				case Keyboard.M:
+					SoundMixer.soundTransform = new SoundTransform(1-SoundMixer.soundTransform.volume);
+					break;
+				case Keyboard.ESCAPE:
+					if(currentScene.name!="Logo")
+						reset(false);
+					break;
+				default:
+					dispatchEvent(new Event("action"));
+					break;
 			}
-			else if(e.type==MouseEvent.MOUSE_DOWN 
-				|| e.type==KeyboardEvent.KEY_DOWN && (e as KeyboardEvent).keyCode==Keyboard.SPACE)
-				dispatchEvent(new Event("action"));
 		}
 		
 		public function isAdmin():Boolean {
