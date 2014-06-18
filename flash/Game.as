@@ -96,7 +96,9 @@
 		}
 		
 		private function persistScore():void {
-			so.setProperty("score",score);
+			if(!isMultiplayer()) {
+				so.setProperty("score",score);
+			}
 		}
 		
 		private function getScore():Array {
@@ -516,10 +518,22 @@
 					foeServe();
 					break;
 				case "lost":
-					peerLost = true;
+					if(waitingForPeer) {
+						//	this case happens if both players lost. In that case, we force the serving player to win
+						if(myServe) {
+							peerLost = true;
+							waitingForPeer = false;
+							score[1]--;
+							winPoint();
+						}
+					}
+					else {
+						peerLost = true;
+					}
 					break;
 				case "continue":
 					if(waitingForPeer) {
+						peerLost = false;	//	peerLost=true is the case when both players lost and we had to force-win the player who serves
 						waitingForPeer = false;
 						onAction(null);
 					}

@@ -26,7 +26,7 @@
 			stage.addEventListener(MouseEvent.MOUSE_DOWN,onMouseAction);
 			stage.addEventListener(KeyboardEvent.KEY_DOWN,onKeyboardAction);
 			if(AdHandler.isSupported) {
-				adHandler = new AdHandler();
+				AdHandler.initialize();
 			}
 			addEventListener(Event.DEACTIVATE,onDeactivate);
 		}
