@@ -53,8 +53,8 @@
 		}
 		
 		private function onDeactivate(e:Event):void {
-			if(currentScene.name!="Logo")
-				reset(true);
+//			if(currentScene.name!="Logo")
+//				reset(true);
 		}
 				
 		public function showAd():void {
